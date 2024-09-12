@@ -403,7 +403,7 @@ class LocalSearchMixedContext(LocalContextBuilder):
         final_context = []
         final_context_data = {}
 
-        cached_relationships = []
+        # cached_relationships = []
 
         # gradually add entities and associated metadata to the context until we reach limit
         for entity in selected_entities:
@@ -414,7 +414,7 @@ class LocalSearchMixedContext(LocalContextBuilder):
 
             # build relationship context
             
-            (relationship_context, relationship_context_data, cached_relationships) = build_relationship_context(
+            (relationship_context, relationship_context_data) = build_relationship_context(
                 selected_entities=added_entities,
                 relationships=list(self.relationships.values()),
                 token_encoder=self.token_encoder,
@@ -424,7 +424,6 @@ class LocalSearchMixedContext(LocalContextBuilder):
                 include_relationship_weight=include_relationship_weight,
                 relationship_ranking_attribute=relationship_ranking_attribute,
                 context_name="Relationships",
-                cached_relationships=cached_relationships,
             )
             current_context.append(relationship_context)
             current_context_data["relationships"] = relationship_context_data

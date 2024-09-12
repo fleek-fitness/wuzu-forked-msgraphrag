@@ -160,7 +160,6 @@ def build_relationship_context(
     relationship_ranking_attribute: str = "rank",
     column_delimiter: str = "|",
     context_name: str = "Relationships",
-    cached_relationships: list[Relationship] = [],
 ):
     """Prepare relationship data tables as context data for system prompt."""
     selected_relationships = _filter_relationships(
@@ -173,24 +172,20 @@ def build_relationship_context(
     unique_relationships = set()
     filtered_relationships = []
 
-    def is_duplicate(rel, unique_set, cached_rels):
+    def is_duplicate(rel, unique_set):
         forward = (rel.source, rel.target)
         backward = (rel.target, rel.source)
-        return (forward in unique_set or backward in unique_set) or any(
-            (rel.source == cached_rel.source and rel.target == cached_rel.target) or
-            (rel.source == cached_rel.target and rel.target == cached_rel.source)
-            for cached_rel in cached_rels
-        )
+        return forward in unique_set or backward in unique_set
 
     for sel_rel in selected_relationships:
-        if not is_duplicate(sel_rel, unique_relationships, cached_relationships):
+        if not is_duplicate(sel_rel, unique_relationships):
             unique_relationships.add((sel_rel.source, sel_rel.target))
             filtered_relationships.append(sel_rel)
 
     selected_relationships = filtered_relationships
 
     if len(selected_entities) == 0 or len(selected_relationships) == 0:
-        return "", pd.DataFrame(), cached_relationships
+        return "", pd.DataFrame()
 
     # add headers
     current_context_text = f"-----{context_name}-----" + "\n"
@@ -240,7 +235,7 @@ def build_relationship_context(
     else:
         record_df = pd.DataFrame()
 
-    return current_context_text, record_df, cached_relationships+selected_relationships
+    return current_context_text, record_df
 
 # def build_relationship_context(
 #     selected_entities: list[Entity],
