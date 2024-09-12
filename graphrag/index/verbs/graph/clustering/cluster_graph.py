@@ -5,8 +5,10 @@
 
 import logging
 from enum import Enum
+from random import randint
 from random import Random
 from typing import Any, cast
+
 
 import networkx as nx
 import pandas as pd
@@ -114,6 +116,7 @@ def apply_clustering(
     graphml: str, communities: Communities, level=0, seed=0xF001
 ) -> nx.Graph:
     """Apply clustering to a graphml string."""
+    seed = randint(0, 2 ** 32 - 1)
     random = Random(seed)  # noqa S311
     graph = nx.parse_graphml(graphml)
     for community_level, community_id, nodes in communities:
