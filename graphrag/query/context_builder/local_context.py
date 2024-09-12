@@ -240,7 +240,7 @@ def build_relationship_context(
     else:
         record_df = pd.DataFrame()
 
-    return current_context_text, record_df, cached_relationships
+    return current_context_text, record_df, cached_relationships+selected_relationships
 
 # def build_relationship_context(
 #     selected_entities: list[Entity],
