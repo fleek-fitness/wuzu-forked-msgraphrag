@@ -160,7 +160,8 @@ def build_relationship_context(
     relationship_ranking_attribute: str = "rank",
     column_delimiter: str = "|",
     context_name: str = "Relationships",
-) -> tuple[str, pd.DataFrame]:
+    cached_relationships: list[Relationship] = [],
+):
     """Prepare relationship data tables as context data for system prompt."""
     selected_relationships = _filter_relationships(
         selected_entities=selected_entities,
@@ -169,8 +170,27 @@ def build_relationship_context(
         relationship_ranking_attribute=relationship_ranking_attribute,
     )
 
+    unique_relationships = set()
+    filtered_relationships = []
+
+    def is_duplicate(rel, unique_set, cached_rels):
+        forward = (rel.source, rel.target)
+        backward = (rel.target, rel.source)
+        return (forward in unique_set or backward in unique_set) or any(
+            (rel.source == cached_rel.source and rel.target == cached_rel.target) or
+            (rel.source == cached_rel.target and rel.target == cached_rel.source)
+            for cached_rel in cached_rels
+        )
+
+    for sel_rel in selected_relationships:
+        if not is_duplicate(sel_rel, unique_relationships, cached_relationships):
+            unique_relationships.add((sel_rel.source, sel_rel.target))
+            filtered_relationships.append(sel_rel)
+
+    selected_relationships = filtered_relationships
+
     if len(selected_entities) == 0 or len(selected_relationships) == 0:
-        return "", pd.DataFrame()
+        return "", pd.DataFrame(), cached_relationships
 
     # add headers
     current_context_text = f"-----{context_name}-----" + "\n"
@@ -220,7 +240,79 @@ def build_relationship_context(
     else:
         record_df = pd.DataFrame()
 
-    return current_context_text, record_df
+    return current_context_text, record_df, cached_relationships
+
+# def build_relationship_context(
+#     selected_entities: list[Entity],
+#     relationships: list[Relationship],
+#     token_encoder: tiktoken.Encoding | None = None,
+#     include_relationship_weight: bool = False,
+#     max_tokens: int = 8000,
+#     top_k_relationships: int = 10,
+#     relationship_ranking_attribute: str = "rank",
+#     column_delimiter: str = "|",
+#     context_name: str = "Relationships",
+# ) -> tuple[str, pd.DataFrame]:
+#     """Prepare relationship data tables as context data for system prompt."""
+#     selected_relationships = _filter_relationships(
+#         selected_entities=selected_entities,
+#         relationships=relationships,
+#         top_k_relationships=top_k_relationships,
+#         relationship_ranking_attribute=relationship_ranking_attribute,
+#     )
+
+#     if len(selected_entities) == 0 or len(selected_relationships) == 0:
+#         return "", pd.DataFrame()
+
+#     # add headers
+#     current_context_text = f"-----{context_name}-----" + "\n"
+#     header = ["id", "source", "target", "description"]
+#     if include_relationship_weight:
+#         header.append("weight")
+#     attribute_cols = (
+#         list(selected_relationships[0].attributes.keys())
+#         if selected_relationships[0].attributes
+#         else []
+#     )
+#     attribute_cols = [col for col in attribute_cols if col not in header]
+#     header.extend(attribute_cols)
+
+#     current_context_text += column_delimiter.join(header) + "\n"
+#     current_tokens = num_tokens(current_context_text, token_encoder)
+
+#     all_context_records = [header]
+#     for rel in selected_relationships:
+#         new_context = [
+#             rel.short_id if rel.short_id else "",
+#             rel.source,
+#             rel.target,
+#             rel.description if rel.description else "",
+#         ]
+#         if include_relationship_weight:
+#             new_context.append(str(rel.weight if rel.weight else ""))
+#         for field in attribute_cols:
+#             field_value = (
+#                 str(rel.attributes.get(field))
+#                 if rel.attributes and rel.attributes.get(field)
+#                 else ""
+#             )
+#             new_context.append(field_value)
+#         new_context_text = column_delimiter.join(new_context) + "\n"
+#         new_tokens = num_tokens(new_context_text, token_encoder)
+#         if current_tokens + new_tokens > max_tokens:
+#             break
+#         current_context_text += new_context_text
+#         all_context_records.append(new_context)
+#         current_tokens += new_tokens
+
+#     if len(all_context_records) > 1:
+#         record_df = pd.DataFrame(
+#             all_context_records[1:], columns=cast(Any, all_context_records[0])
+#         )
+#     else:
+#         record_df = pd.DataFrame()
+
+#     return current_context_text, record_df
 
 
 def _filter_relationships(

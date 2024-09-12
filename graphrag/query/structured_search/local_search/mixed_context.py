@@ -403,17 +403,18 @@ class LocalSearchMixedContext(LocalContextBuilder):
         final_context = []
         final_context_data = {}
 
+        cached_relationships = []
+
         # gradually add entities and associated metadata to the context until we reach limit
         for entity in selected_entities:
             current_context = []
             current_context_data = {}
             added_entities.append(entity)
 
+
             # build relationship context
-            (
-                relationship_context,
-                relationship_context_data,
-            ) = build_relationship_context(
+            
+            (relationship_context, relationship_context_data, cached_relationships) = build_relationship_context(
                 selected_entities=added_entities,
                 relationships=list(self.relationships.values()),
                 token_encoder=self.token_encoder,
@@ -423,6 +424,7 @@ class LocalSearchMixedContext(LocalContextBuilder):
                 include_relationship_weight=include_relationship_weight,
                 relationship_ranking_attribute=relationship_ranking_attribute,
                 context_name="Relationships",
+                cached_relationships=cached_relationships,
             )
             current_context.append(relationship_context)
             current_context_data["relationships"] = relationship_context_data
@@ -489,3 +491,120 @@ class LocalSearchMixedContext(LocalContextBuilder):
             for key in final_context_data:
                 final_context_data[key]["in_context"] = True
         return (final_context_text, final_context_data)
+
+    # def _build_local_context(
+    #     self,
+    #     selected_entities: list[Entity],
+    #     max_tokens: int = 8000,
+    #     include_entity_rank: bool = False,
+    #     rank_description: str = "relationship count",
+    #     include_relationship_weight: bool = False,
+    #     top_k_relationships: int = 10,
+    #     relationship_ranking_attribute: str = "rank",
+    #     return_candidate_context: bool = False,
+    #     column_delimiter: str = "|",
+    # ) -> tuple[str, dict[str, pd.DataFrame]]:
+    #     """Build data context for local search prompt combining entity/relationship/covariate tables."""
+    #     # build entity context
+    #     entity_context, entity_context_data = build_entity_context(
+    #         selected_entities=selected_entities,
+    #         token_encoder=self.token_encoder,
+    #         max_tokens=max_tokens,
+    #         column_delimiter=column_delimiter,
+    #         include_entity_rank=include_entity_rank,
+    #         rank_description=rank_description,
+    #         context_name="Entities",
+    #     )
+    #     entity_tokens = num_tokens(entity_context, self.token_encoder)
+
+    #     # build relationship-covariate context
+    #     added_entities = []
+    #     final_context = []
+    #     final_context_data = {}
+
+    #     # gradually add entities and associated metadata to the context until we reach limit
+    #     for entity in selected_entities:
+    #         current_context = []
+    #         current_context_data = {}
+    #         added_entities.append(entity)
+
+    #         # build relationship context
+    #         (
+    #             relationship_context,
+    #             relationship_context_data,
+    #         ) = build_relationship_context(
+    #             selected_entities=added_entities,
+    #             relationships=list(self.relationships.values()),
+    #             token_encoder=self.token_encoder,
+    #             max_tokens=max_tokens,
+    #             column_delimiter=column_delimiter,
+    #             top_k_relationships=top_k_relationships,
+    #             include_relationship_weight=include_relationship_weight,
+    #             relationship_ranking_attribute=relationship_ranking_attribute,
+    #             context_name="Relationships",
+    #         )
+    #         current_context.append(relationship_context)
+    #         current_context_data["relationships"] = relationship_context_data
+    #         total_tokens = entity_tokens + num_tokens(
+    #             relationship_context, self.token_encoder
+    #         )
+
+    #         # build covariate context
+    #         for covariate in self.covariates:
+    #             covariate_context, covariate_context_data = build_covariates_context(
+    #                 selected_entities=added_entities,
+    #                 covariates=self.covariates[covariate],
+    #                 token_encoder=self.token_encoder,
+    #                 max_tokens=max_tokens,
+    #                 column_delimiter=column_delimiter,
+    #                 context_name=covariate,
+    #             )
+    #             total_tokens += num_tokens(covariate_context, self.token_encoder)
+    #             current_context.append(covariate_context)
+    #             current_context_data[covariate.lower()] = covariate_context_data
+
+    #         if total_tokens > max_tokens:
+    #             log.info("Reached token limit - reverting to previous context state")
+    #             break
+
+    #         final_context = current_context
+    #         final_context_data = current_context_data
+
+    #     # attach entity context to final context
+    #     final_context_text = entity_context + "\n\n" + "\n\n".join(final_context)
+    #     final_context_data["entities"] = entity_context_data
+
+    #     if return_candidate_context:
+    #         # we return all the candidate entities/relationships/covariates (not only those that were fitted into the context window)
+    #         # and add a tag to indicate which records were included in the context window
+    #         candidate_context_data = get_candidate_context(
+    #             selected_entities=selected_entities,
+    #             entities=list(self.entities.values()),
+    #             relationships=list(self.relationships.values()),
+    #             covariates=self.covariates,
+    #             include_entity_rank=include_entity_rank,
+    #             entity_rank_description=rank_description,
+    #             include_relationship_weight=include_relationship_weight,
+    #         )
+    #         for key in candidate_context_data:
+    #             candidate_df = candidate_context_data[key]
+    #             if key not in final_context_data:
+    #                 final_context_data[key] = candidate_df
+    #                 final_context_data[key]["in_context"] = False
+    #             else:
+    #                 in_context_df = final_context_data[key]
+
+    #                 if "id" in in_context_df.columns and "id" in candidate_df.columns:
+    #                     candidate_df["in_context"] = candidate_df[
+    #                         "id"
+    #                     ].isin(  # cspell:disable-line
+    #                         in_context_df["id"]
+    #                     )
+    #                     final_context_data[key] = candidate_df
+    #                 else:
+    #                     final_context_data[key]["in_context"] = True
+
+    #     else:
+    #         for key in final_context_data:
+    #             final_context_data[key]["in_context"] = True
+    #     return (final_context_text, final_context_data)
